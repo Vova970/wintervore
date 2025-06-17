@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 LANGUAGE, TRADE, ADMIN_MAIN, ADMIN_STATS, ADMIN_REQUESTS, ADMIN_BROADCAST, ADMIN_BROADCAST_CONFIRM = range(7)
 
 # Настройки
-ADMIN_IDS = [397419045]  # Замените на ваш ID
+ADMIN_IDS = [8126533622]  # Замените на ваш ID
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN') or '7715353196:AAEvyhRGpqFrUrL_eC9HMozwn9IdyIWwBM4'
 
 # База данных
