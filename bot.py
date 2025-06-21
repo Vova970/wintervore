@@ -641,29 +641,32 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            LANGUAGE: [CallbackQueryHandler(language, pattern='^lang_(ru|en)$')],
+            LANGUAGE: [
+                CallbackQueryHandler(language, pattern='^lang_(ru|en)$', per_message=False)
+            ],
             TRADE: [
-                CallbackQueryHandler(start_trade, pattern='^start_trade$'),
+                CallbackQueryHandler(start_trade, pattern='^start_trade$', per_message=False),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_trade_message)
             ],
             ADMIN_MAIN: [
-                CallbackQueryHandler(admin_stats, pattern='^admin_stats$|^admin_stats_refresh$'),
-                CallbackQueryHandler(admin_requests, pattern='^admin_requests$'),
-                CallbackQueryHandler(admin_broadcast, pattern='^admin_broadcast$'),
-                CallbackQueryHandler(admin_check_blocks, pattern='^admin_check_blocks$'),
-                CallbackQueryHandler(admin_back, pattern='^admin_back$')
+                CallbackQueryHandler(admin_stats, pattern='^admin_stats$|^admin_stats_refresh$', per_message=False),
+                CallbackQueryHandler(admin_requests, pattern='^admin_requests$', per_message=False),
+                CallbackQueryHandler(admin_broadcast, pattern='^admin_broadcast$', per_message=False),
+                CallbackQueryHandler(admin_check_blocks, pattern='^admin_check_blocks$', per_message=False),
+                CallbackQueryHandler(admin_back, pattern='^admin_back$', per_message=False)
             ],
             ADMIN_BROADCAST: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, admin_broadcast_confirm),
-                CallbackQueryHandler(admin_back, pattern='^admin_back$'),
-                CallbackQueryHandler(admin_cancel_broadcast, pattern='^admin_cancel_broadcast$')
+                CallbackQueryHandler(admin_back, pattern='^admin_back$', per_message=False),
+                CallbackQueryHandler(admin_cancel_broadcast, pattern='^admin_cancel_broadcast$', per_message=False)
             ],
             ADMIN_BROADCAST_CONFIRM: [
-                CallbackQueryHandler(admin_broadcast_execute, pattern='^broadcast_confirm_yes$'),
-                CallbackQueryHandler(admin_back, pattern='^broadcast_confirm_no$|^admin_back$')
+                CallbackQueryHandler(admin_broadcast_execute, pattern='^broadcast_confirm_yes$', per_message=False),
+                CallbackQueryHandler(admin_back, pattern='^broadcast_confirm_no$|^admin_back$', per_message=False)
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
+        per_message=False  # Устанавливаем для всего ConversationHandler
     )
 
     application.add_handler(conv_handler)
@@ -672,7 +675,7 @@ def main() -> None:
     application.add_error_handler(error_handler)
     
     application.run_polling()
-
+    
 if __name__ == '__main__':
     try:
         main()
