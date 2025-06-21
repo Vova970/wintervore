@@ -35,7 +35,6 @@ TOKEN = os.getenv('TELEGRAM_BOT_TOKEN') or '7715353196:AAEvyhRGpqFrUrL_eC9HMozwn
 DB_FILE = 'bot_database.db'
 BROADCAST_LOCK = threading.Lock()
 
-# Класс для работы с базой данных
 class Database:
     _instance = None
     _lock = threading.Lock()
@@ -56,7 +55,6 @@ class Database:
     def _create_tables(self):
         cursor = self.conn.cursor()
         
-        # Создаем таблицу пользователей
         cursor.execute('''CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
@@ -67,7 +65,6 @@ class Database:
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )''')
         
-        # Создаем таблицу запросов
         cursor.execute('''CREATE TABLE IF NOT EXISTS requests (
             request_id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -78,7 +75,6 @@ class Database:
             FOREIGN KEY(user_id) REFERENCES users(user_id)
         )''')
         
-        # Создаем таблицу истории рассылок
         cursor.execute('''CREATE TABLE IF NOT EXISTS broadcast_history (
             broadcast_id INTEGER PRIMARY KEY AUTOINCREMENT,
             admin_id INTEGER,
@@ -98,10 +94,8 @@ class Database:
 
     def add_user(self, user_id, username, first_name, last_name, lang):
         cursor = self.conn.cursor()
-        cursor.execute('''
-        INSERT OR IGNORE INTO users (user_id, username, first_name, last_name, lang) 
-        VALUES (?, ?, ?, ?, ?)
-        ''', (user_id, username, first_name, last_name, lang))
+        cursor.execute('''INSERT OR IGNORE INTO users (user_id, username, first_name, last_name, lang) 
+        VALUES (?, ?, ?, ?, ?)''', (user_id, username, first_name, last_name, lang))
         self.conn.commit()
 
     def update_user_lang(self, user_id, lang):
@@ -111,34 +105,28 @@ class Database:
 
     def add_request(self, user_id, link, summer_id):
         cursor = self.conn.cursor()
-        cursor.execute('''
-        INSERT INTO requests (user_id, link, summer_id) 
-        VALUES (?, ?, ?)
-        ''', (user_id, link, summer_id))
+        cursor.execute('''INSERT INTO requests (user_id, link, summer_id) 
+        VALUES (?, ?, ?)''', (user_id, link, summer_id))
         request_id = cursor.lastrowid
         self.conn.commit()
         return request_id
 
     def get_pending_requests(self, page=0, per_page=10):
         cursor = self.conn.cursor()
-        cursor.execute('''
-        SELECT r.request_id, r.created_at, u.user_id, u.username 
+        cursor.execute('''SELECT r.request_id, r.created_at, u.user_id, u.username 
         FROM requests r
         JOIN users u ON r.user_id = u.user_id
         WHERE r.status = 'pending'
         ORDER BY r.created_at DESC
-        LIMIT ? OFFSET ?
-        ''', (per_page, page * per_page))
+        LIMIT ? OFFSET ?''', (per_page, page * per_page))
         return cursor.fetchall()
 
     def get_request(self, request_id):
         cursor = self.conn.cursor()
-        cursor.execute('''
-        SELECT r.*, u.username 
+        cursor.execute('''SELECT r.*, u.username 
         FROM requests r
         JOIN users u ON r.user_id = u.user_id
-        WHERE r.request_id = ?
-        ''', (request_id,))
+        WHERE r.request_id = ?''', (request_id,))
         return cursor.fetchone()
 
     def update_request_status(self, request_id, status):
@@ -149,16 +137,12 @@ class Database:
     def get_stats(self):
         cursor = self.conn.cursor()
         
-        cursor.execute('''
-        SELECT COUNT(*) FROM users 
-        WHERE date(created_at) = date('now') AND blocked = 0
-        ''')
+        cursor.execute('''SELECT COUNT(*) FROM users 
+        WHERE date(created_at) = date('now') AND blocked = 0''')
         today = cursor.fetchone()[0]
         
-        cursor.execute('''
-        SELECT COUNT(*) FROM users 
-        WHERE date(created_at) = date('now', '-1 day') AND blocked = 0
-        ''')
+        cursor.execute('''SELECT COUNT(*) FROM users 
+        WHERE date(created_at) = date('now', '-1 day') AND blocked = 0''')
         yesterday = cursor.fetchone()[0]
         
         cursor.execute('SELECT COUNT(*) FROM users WHERE blocked = 0')
@@ -179,11 +163,9 @@ class Database:
 
     def add_broadcast_record(self, admin_id, message_text, total_users, success_count, failed_count):
         cursor = self.conn.cursor()
-        cursor.execute('''
-        INSERT INTO broadcast_history 
+        cursor.execute('''INSERT INTO broadcast_history 
         (admin_id, message_text, total_users, success_count, failed_count)
-        VALUES (?, ?, ?, ?, ?)
-        ''', (admin_id, message_text, total_users, success_count, failed_count))
+        VALUES (?, ?, ?, ?, ?)''', (admin_id, message_text, total_users, success_count, failed_count))
         self.conn.commit()
         return cursor.lastrowid
 
@@ -193,7 +175,6 @@ class Database:
 # Инициализация базы данных
 db = Database()
 
-# Вспомогательные функции
 async def send_message_safe(bot, chat_id, text, parse_mode=None, reply_markup=None):
     try:
         await bot.send_message(
@@ -206,48 +187,6 @@ async def send_message_safe(bot, chat_id, text, parse_mode=None, reply_markup=No
     except Exception as e:
         logger.error(f"Failed to send message to {chat_id}: {e}")
         return False
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    user_data = db.get_user(user.id)
-
-    if user_data and user_data['lang']:  # Если язык уже выбран
-        lang = user_data['lang']
-        
-        text = get_main_menu_text(lang)
-        button_text = "🚀 Начать трейд" if lang == 'ru' else "🚀 Start Trade"
-        
-        keyboard = [[InlineKeyboardButton(button_text, callback_data='start_trade')]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        if update.message:
-            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='MarkdownV2')
-        else:
-            try:
-                await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='MarkdownV2')
-            except:
-                await send_message_safe(context.bot, user.id, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
-        
-        return TRADE
-
-    # Показываем выбор языка
-    keyboard = [
-        [InlineKeyboardButton("🇷🇺 Русский", callback_data='lang_ru')],
-        [InlineKeyboardButton("🇬🇧 English", callback_data='lang_en')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    text = "🌐 Выберите язык / Choose language"
-    if update.message:
-        msg = await update.message.reply_text(text, reply_markup=reply_markup)
-    else:
-        try:
-            msg = await update.callback_query.edit_message_text(text, reply_markup=reply_markup)
-        except:
-            msg = await send_message_safe(context.bot, user.id, text, reply_markup=reply_markup)
-
-    context.user_data['lang_message_id'] = msg.message_id
-    return LANGUAGE
 
 def get_main_menu_text(lang):
     if lang == 'ru':
@@ -275,14 +214,54 @@ def get_main_menu_text(lang):
             "Click the button below to submit your request and read the instructions\\."
         )
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    user_data = db.get_user(user.id)
+
+    if user_data and user_data['lang']:
+        lang = user_data['lang']
+        
+        text = get_main_menu_text(lang)
+        button_text = "🚀 Начать трейд" if lang == 'ru' else "🚀 Start Trade"
+        
+        keyboard = [[InlineKeyboardButton(button_text, callback_data='start_trade')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if update.message:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+        else:
+            try:
+                await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+            except:
+                await send_message_safe(context.bot, user.id, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+        
+        return TRADE
+
+    keyboard = [
+        [InlineKeyboardButton("🇷🇺 Русский", callback_data='lang_ru')],
+        [InlineKeyboardButton("🇬🇧 English", callback_data='lang_en')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    text = "🌐 Выберите язык / Choose language"
+    if update.message:
+        msg = await update.message.reply_text(text, reply_markup=reply_markup)
+    else:
+        try:
+            msg = await update.callback_query.edit_message_text(text, reply_markup=reply_markup)
+        except:
+            msg = await send_message_safe(context.bot, user.id, text, reply_markup=reply_markup)
+
+    context.user_data['lang_message_id'] = msg.message_id
+    return LANGUAGE
+
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
-    lang = query.data.split('_')[1]  # Получаем 'ru' или 'en'
+    lang = query.data.split('_')[1]
     
-    # Сохраняем выбор языка
     db.add_user(
         user_id=user.id,
         username=user.username,
@@ -291,7 +270,6 @@ async def language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         lang=lang
     )
     
-    # Показываем главное меню
     text = get_main_menu_text(lang)
     button_text = "🚀 Начать трейд" if lang == 'ru' else "🚀 Start Trade"
     
@@ -345,7 +323,6 @@ async def handle_trade_message(update: Update, context: ContextTypes.DEFAULT_TYP
     success_text = "✅ *Заявка отправлена!*" if lang == 'ru' else "✅ *Request submitted!*"
     await update.message.reply_text(success_text, parse_mode="Markdown")
 
-    # Уведомление админов
     admin_text = (
         f"📩 *Новая заявка от пользователя:* @{user.username if user.username else 'N/A'}\n"
         f"🔗 *Ссылка:* `{link}`\n"
@@ -369,7 +346,6 @@ async def handle_trade_message(update: Update, context: ContextTypes.DEFAULT_TYP
             parse_mode="Markdown"
         )
 
-    # Возвращаем пользователя в главное меню
     text = get_main_menu_text(lang)
     keyboard = [[
         InlineKeyboardButton(
@@ -418,10 +394,8 @@ async def handle_request_decision(update: Update, context: ContextTypes.DEFAULT_
         logger.error(f"Unknown action: {action}")
         return
         
-    # Уведомляем пользователя
     await send_message_safe(context.bot, user_id, user_text)
     
-    # Обновляем сообщение админа
     try:
         await query.edit_message_reply_markup(reply_markup=None)
         await query.message.reply_text(admin_text)
@@ -546,9 +520,8 @@ async def admin_broadcast_execute(update: Update, context: ContextTypes.DEFAULT_
 
         await query.edit_message_text(f"⏳ Начата рассылка сообщения для {total_users} пользователей...")
 
-        # Отправляем сообщения с задержкой, чтобы избежать ограничений Telegram
         for i, user_id in enumerate(user_ids):
-            if i % 20 == 0 and i > 0:  # Пауза каждые 20 сообщений
+            if i % 20 == 0 and i > 0:
                 time.sleep(1)
             
             try:
@@ -559,11 +532,9 @@ async def admin_broadcast_execute(update: Update, context: ContextTypes.DEFAULT_
                     blocked_users.append(user_id)
                 failed += 1
 
-        # Помечаем заблокировавших пользователей
         if blocked_users:
             db.mark_blocked_users(blocked_users)
 
-        # Сохраняем статистику рассылки
         db.add_broadcast_record(
             admin_id=query.from_user.id,
             message_text=broadcast_text,
@@ -572,7 +543,6 @@ async def admin_broadcast_execute(update: Update, context: ContextTypes.DEFAULT_
             failed_count=failed
         )
 
-        # Отправляем отчет
         result_text = (
             f"📢 Результаты рассылки:\n"
             f"✅ Успешно: {success}\n"
@@ -634,6 +604,24 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await query.edit_message_text(text="👨‍💻 Админ меню:", reply_markup=reply_markup)
     return ADMIN_MAIN
 
+async def admin_cancel_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    
+    if 'broadcast_message' in context.user_data:
+        del context.user_data['broadcast_message']
+    
+    keyboard = [
+        [InlineKeyboardButton("📊 Статистика", callback_data='admin_stats')],
+        [InlineKeyboardButton("📨 Заявки", callback_data='admin_requests')],
+        [InlineKeyboardButton("📢 Рассылка", callback_data='admin_broadcast')],
+        [InlineKeyboardButton("🔄 Проверить блокировки", callback_data='admin_check_blocks')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text="👨‍💻 Админ меню:", reply_markup=reply_markup)
+    return ADMIN_MAIN
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text('❌ Действие отменено.')
     return ConversationHandler.END
@@ -650,7 +638,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 def main() -> None:
     application = Application.builder().token(TOKEN).build()
 
-    # Обработчик команд
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
