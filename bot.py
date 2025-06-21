@@ -56,8 +56,8 @@ class Database:
     def _create_tables(self):
         cursor = self.conn.cursor()
         
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
+        # Создаем таблицу пользователей
+        cursor.execute('''CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             first_name TEXT,
@@ -67,8 +67,8 @@ class Database:
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )''')
         
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS requests (
+        # Создаем таблицу запросов
+        cursor.execute('''CREATE TABLE IF NOT EXISTS requests (
             request_id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             link TEXT,
@@ -76,10 +76,10 @@ class Database:
             status TEXT DEFAULT 'pending',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(user_id)
-        ''')
+        )''')
         
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS broadcast_history (
+        # Создаем таблицу истории рассылок
+        cursor.execute('''CREATE TABLE IF NOT EXISTS broadcast_history (
             broadcast_id INTEGER PRIMARY KEY AUTOINCREMENT,
             admin_id INTEGER,
             message_text TEXT,
